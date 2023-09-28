@@ -63,14 +63,21 @@ def build_geometry_graph(id):
     graph['feats'] = relas
     np.save(os.path.join(SaveDir, str(id)), graph)
 
-    if counter.value % 100 == 0 and counter.value >= 100:
-#    if counter.value % 2 == 0:
-        print('{} / {}'.format(counter.value, num_images))
+#     if counter.value % 100 == 0 and counter.value >= 100:
+# #    if counter.value % 2 == 0:
+#         print('{} / {}'.format(counter.value, num_images))
+
+#     return id, graph
+
 
 
 Directed = True  # directed or undirected graph
-SaveDir = "../../GCN_CNN_data/graph_data/geometry-{}directed".format('' if Directed else 'un')
-GeometryFeatsPath = '../../GCN_CNN_data/graph_data/geometry_feats-{}directed.pkl'.format('' if Directed else 'un')
+SaveDir = "fp_data/geometry-{}directed".format('' if Directed else 'un')
+# SaveDir = "graph_data"
+
+# save_path = 'graph_data/geometry_feats-{}directed_graph_data.npy'.format('' if Directed else 'un')
+
+GeometryFeatsPath = 'fp_data/geometry_feats-{}directed.pkl'.format('' if Directed else 'un')
 
 os.makedirs(SaveDir, exist_ok=True)
 
@@ -88,3 +95,9 @@ p = Pool(20)
 print("[INFO] Start")
 results = p.map(build_geometry_graph, all_feats.keys())
 print("Done")
+
+#%%
+
+# results_dict = dict(results)
+
+# np.save(save_path, results_dict)

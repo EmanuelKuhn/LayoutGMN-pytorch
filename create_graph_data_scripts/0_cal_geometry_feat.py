@@ -145,9 +145,9 @@ def cal_geometry_feats(id):
 
 NumFeats = 8
 Directed = True
-SavePath = '../../GCN_CNN_data/graph_data/geometry_feats-{}directed.pkl'.format('' if Directed else 'un')
+SavePath = 'graph_data/geometry_feats-{}directed.pkl'.format('' if Directed else 'un')
 
-BoxInfo = pickle.load(open('../data/FP_box_info.pkl', 'rb'))
+BoxInfo = pickle.load(open('layoutgmn_data/FP_box_info.pkl', 'rb'))
 BoxInfo = dict(BoxInfo)
 
 NumImages = len(BoxInfo)
