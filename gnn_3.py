@@ -4,8 +4,8 @@ class GraphEmbeddingNet(nn.Module):
     """A graph to embedding mapping network."""
 
     def __init__(self,
-                   encoder,
-                   aggregator,
+                   encoder: GraphEncoder,
+                   aggregator: GraphAggregator,
                    message_net,
                    reverse_message_net,
                    node_update_MLP,
