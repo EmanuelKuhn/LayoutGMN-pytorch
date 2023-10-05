@@ -187,20 +187,22 @@ def _main(config):
             os.makedirs(model_save_path, exist_ok=True)
             # os.makedirs(config.feature_save_path, exist_ok=True)
             try:
+
                 if config.load_pretrained == False:
-                    # save models
-                    torch.save(gmn_model.state_dict(),
-                               config.model_save_path + 'gmn_tmp_model' + str(epoch + 1) + '.pkl')
-                    #print('temporary models saved!')
+                    checkpoint_epochs = epoch
                 else:
-                    torch.save(gmn_model.state_dict(),
-                               config.model_save_path + 'gmn_tmp_model' + str(
-                                   int(stored_epoch) + epoch + 1) + '.pkl')
-                    #print('temporary models saved!')
+                    checkpoint_epochs = epoch + int(stored_epoch)
+                
+                tmp_model_path = model_save_path + 'gmn_tmp_model' + str(checkpoint_epochs) + '.pkl'
+                torch.save(gmn_model.state_dict(), tmp_model_path)
 
             except:
                 print('failed to save temp models')
                 raise
+            
+            model_art = wandb.Artifact(f"gmn_model_{wandb.run.id}", type="model", metadata={"epoch": checkpoint_epochs, "iterations": total_iterations})
+            model_art.add_file(tmp_model_path)
+            wandb.run.log_artifact(model_art)
 
             # set model to training mode again after it had been in eval mode
             #gmn_model.train()
