@@ -49,7 +49,7 @@ def _main(config):
 
     run = wandb.init(project="layout_gmn", name="layoutgmn", tags=["v0.9a"], config=config)
 
-    model_save_path = f"config.model_save_path/{run.id}/"
+    model_save_path = f"{config.model_save_path}/{run.id}/"
 
     stored_epoch = '380'
     if config.load_pretrained == False:
