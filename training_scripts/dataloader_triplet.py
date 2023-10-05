@@ -375,7 +375,7 @@ class RICO_TripletDataset(Dataset):
 #%%
 class BlobFetcher():
     """Experimental class for prefetching blobs in a separate process."""
-    def __init__(self, split, dataloader, if_shuffle=False, num_workers = 4):
+    def __init__(self, split, dataloader, if_shuffle, num_workers = 4):
         """
         db is a list of tuples containing: imcrop_name, caption, bbox_feat of gt box, imname
         """
