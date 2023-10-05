@@ -5,7 +5,7 @@ def get_args():
     parser = ArgumentParser(description='Graph Matching Network on Layout Data')
 
     parser.add_argument('--train_mode', action='store_true', default=False)
-    parser.add_argument('--eval_mode', action='store_true', default=True)
+    parser.add_argument('--eval_mode', action='store_true', default=False)
 
     parser.add_argument('--cuda', action='store_true', default=False)
     parser.add_argument('--gpu', type=int, default=0)
@@ -27,12 +27,12 @@ def get_args():
     parser.add_argument('--no_plot', action='store_true', default=False)
     parser.add_argument('--show_log_every', type=int, default=5)
     parser.add_argument('--save_network_every', type=int, default=10)
-    parser.add_argument('--load_pretrained', action='store_true', default=True)
+    parser.add_argument('--load_pretrained', action='store_true', default=False)
 
 
     parser.add_argument('--use_box_feats', action='store_true', default=True,
                         help='whether to use geometric box features')
-    parser.add_argument('--apn_dict_path', type=str, default='/gruvi/usr/akshay/1-FPs/7-FP_Metric/GCN_CNN_data/data/Triplets/apn_dict_13K_pthres60.pkl',
+    parser.add_argument('--apn_dict_path', type=str, default="layoutgmn_data_changed_splits/apn_dict.pkl",
                         help='path to the training triplets computed based on IoU')
     parser.add_argument('--hardmining', action='store_true', default=False,
                         help='whether to use geometric box features')
@@ -63,8 +63,7 @@ def get_args():
     parser.add_argument('--model_type', type=str, default='matching',
                         help='Whether to use GNN or GMN')
 
-    parser.add_argument('--model_save_path', default='trained_models/')
-
+    parser.add_argument('--model_save_path', default='trained_gmn_models/')
 
     args = parser.parse_args()
     return args

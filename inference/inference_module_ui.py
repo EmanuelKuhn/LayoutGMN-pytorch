@@ -412,7 +412,7 @@ if __name__ == '__main__':
     batched_retr = True
 
     gmn_model = gmn_net
-    save_dir = '../trained_models/'
+    save_dir = '../trained_gmn_models/'
     stored_epoch = '50'
 
     loaded_gmn_model = load_pretrained_model(gmn_model, save_dir, stored_epoch)
