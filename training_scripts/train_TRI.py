@@ -176,14 +176,15 @@ def _main(config):
             #start = time.time()
 
 
-        if data['bounds']['wrapped']:
+        epoch_done = data['bounds']['wrapped']
+
+        if epoch_done:
             epoch += 1
-            epoch_done = True
             iteration = 0
 
 
-        if (epoch + 1) % config.save_network_every == 0 and epoch_done:
-            os.makedirs(config.model_save_path, exist_ok=True)
+        if epoch % config.save_network_every == 0 and epoch_done:
+            os.makedirs(model_save_path, exist_ok=True)
             # os.makedirs(config.feature_save_path, exist_ok=True)
             try:
                 if config.load_pretrained == False:
