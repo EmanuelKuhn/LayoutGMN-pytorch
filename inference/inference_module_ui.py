@@ -15,7 +15,7 @@ import torch
 import torch.nn as nn
 import pickle
 
-'''
+"""
 class get_sg_data(object):
     def __init__(self, fp_path, config, info):
         super(get_sg_data, self).__init__()
@@ -175,7 +175,7 @@ class compute_and_sort_fp(object):
 
             np.savetxt(str(query_fp_id)+'_retrievals.txt', similar_fp_list, delimiter='\n', fmt='%s')
             print('Finished saving retrievals for {} file'.format(cnt))
-'''
+"""
 
 ####################### Batched retrieval code from here ##################################################
 
