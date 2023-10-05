@@ -16,6 +16,7 @@ from combine_all_modules_6 import compute_similarity, reshape_and_split_tensor, 
 
 from cross_graph_communication_5 import *
 
+import wandb
 
 #####################################################
 ########### Some helper functions ###################
@@ -46,6 +47,10 @@ def _main(config):
 
     print('Initializing the model..........')
 
+    run = wandb.init(project="layout_gmn", name="layoutgmn", tags=["v0.9a"], config=config)
+
+    model_save_path = f"config.model_save_path/{run.id}/"
+
     stored_epoch = '380'
     if config.load_pretrained == False:
         print('No pretrained models loaded')
@@ -54,11 +59,11 @@ def _main(config):
     else:
         print('Loading pretrained models from:  ')
         
-        print(config.model_save_path + 'gmn_tmp_model' + stored_epoch + '.pkl')
+        print(model_save_path + 'gmn_tmp_model' + stored_epoch + '.pkl')
         gmn_model = gmn_net
 
         gmn_model_state_dict = torch.load(
-            config.model_save_path + 'gmn_tmp_model' + stored_epoch + '.pkl')
+            model_save_path + 'gmn_tmp_model' + stored_epoch + '.pkl')
 
         from collections import OrderedDict
 
@@ -92,6 +97,8 @@ def _main(config):
 
     iteration = 0
     epoch = 0
+
+    total_iterations = 0
 
     gmn_model.train()
     torch.set_grad_enabled(True)
@@ -135,15 +142,29 @@ def _main(config):
         torch.cuda.empty_cache()
         iteration += 1
 
+        total_iterations += 1
+
         if epoch == 0 and iteration == 1:
             print("Training Started ")
             print(header)
 
         if iteration % 100 == 0:
             elsp_time = (time.time() - start)
-            print(log_template.format(strftime(u"%H:%M:%S", time.gmtime(time.time() - start)),
+            print(log_template.format(strftime(u"%H:%M:%S", time.gmtime(elsp_time)),
                                       epoch, config.epochs, iteration, graph_vec_scale,
                                       sim_pos, sim_neg, sim_diff, total_batch_loss.item()))
+
+            wandb.log({
+                "epoch": epoch,
+                "epoch_iteration": iteration,
+                "iterations": total_iterations,
+                "graph_vec_scale": graph_vec_scale.cpu(),
+                "sim_pos": sim_pos.cpu(),
+                "sim_neg": sim_neg.cpu(),
+                "sim_diff": sim_diff.cpu(),
+                "total_batch_loss": total_batch_loss.item(),
+                "elapsed_time": elsp_time,
+            })
 
             '''
             with open(config.model_save_dir + '/log.txt', 'a') as f:
