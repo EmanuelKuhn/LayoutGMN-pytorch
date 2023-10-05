@@ -27,7 +27,7 @@ def get_args():
     parser.add_argument('--no_plot', action='store_true', default=False)
     parser.add_argument('--show_log_every', type=int, default=5)
     parser.add_argument('--save_network_every', type=int, default=10)
-    parser.add_argument('--load_pretrained', action='store_true', default=False)
+    parser.add_argument('--pretrained_wandb_model_ref', type=str, default=None)
 
 
     parser.add_argument('--use_box_feats', action='store_true', default=True,

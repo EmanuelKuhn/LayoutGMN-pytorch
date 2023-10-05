@@ -47,23 +47,33 @@ def _main(config):
 
     print('Initializing the model..........')
 
-    run = wandb.init(project="layout_gmn", name="layoutgmn", tags=["v0.9a"], config=config)
+    wandb.init(project="layout_gmn", name="layoutgmn", tags=["v0.9a"], config=config)
 
-    model_save_path = f"{config.model_save_path}/{run.id}/"
+    assert wandb.run is not None
 
-    stored_epoch = '380'
-    if config.load_pretrained == False:
+    model_save_path = f"{config.model_save_path}/{wandb.run.id}/"
+
+
+    if config.pretrained_wandb_model_ref is None:
         print('No pretrained models loaded')
         gmn_model = gmn_net
 
+        stored_epoch = None
+
     else:
-        print('Loading pretrained models from:  ')
+
+        model_art = wandb.run.use_artifact(config.pretrained_wandb_model_ref, type="model")
+
+        pretrained_path = model_art.file()
+
+        stored_epoch = model_art.metadata["epoch"]
+
+        print(f'Loading pretrained model from:  {pretrained_path} (wandb reference: {config.pretrained_wandb_model_ref})')
         
-        print(model_save_path + 'gmn_tmp_model' + stored_epoch + '.pkl')
+        # print(model_save_path + 'gmn_tmp_model' + stored_epoch + '.pkl')
         gmn_model = gmn_net
 
-        gmn_model_state_dict = torch.load(
-            model_save_path + 'gmn_tmp_model' + stored_epoch + '.pkl')
+        gmn_model_state_dict = torch.load(pretrained_path)
 
         from collections import OrderedDict
 
@@ -188,7 +198,7 @@ def _main(config):
             # os.makedirs(config.feature_save_path, exist_ok=True)
             try:
 
-                if config.load_pretrained == False:
+                if stored_epoch is None:
                     checkpoint_epochs = epoch
                 else:
                     checkpoint_epochs = epoch + int(stored_epoch)
