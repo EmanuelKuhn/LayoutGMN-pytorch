@@ -2,10 +2,12 @@ import networkx as nx
 import copy
 import numpy as np
 
-from cross_graph_message_passing_5 import *
+from cross_graph_communication_5 import *
 import collections
 import abc
 import six
+
+import torch
 
 '''
 GraphData = collections.namedtuple('GraphData', [

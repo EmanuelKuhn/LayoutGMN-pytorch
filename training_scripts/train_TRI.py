@@ -1,3 +1,6 @@
+import sys
+sys.path.append("..")
+
 from torch.optim.lr_scheduler import StepLR
 
 import copy
@@ -9,7 +12,9 @@ from dynamicplot import DynamicPlot
 from dataloader_graph import data_input_to_gmn
 from dataloader_triplet import RICO_TripletDataset
 from test_dataloader_triplet import test_RICO_TripletDataset
-from combine_all_modules_6 import * # this imports the util file
+from combine_all_modules_6 import compute_similarity, reshape_and_split_tensor, gmn_net # this imports the util file
+
+from cross_graph_communication_5 import *
 
 
 #####################################################
