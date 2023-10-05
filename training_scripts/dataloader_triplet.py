@@ -27,9 +27,6 @@ import torch.nn.functional as F
 from collections import defaultdict
 import random
 
-def default_loader(path):
-    return Image.open(path).convert('RGB')
-
 
 def pickle_save(fname, data):
     with open(fname, 'wb') as pf:
@@ -43,89 +40,76 @@ def pickle_load(fname):
          return data
 
 
-#%%
+def get_id_from_path(path):
+    return path.split("/")[-1].split(".")[0]
+
+def get_splits(path="layoutgmn_data_changed_splits/FP_data.p"):
+    fp_data = pickle_load(path)
+
+
+    splits = dict()
+
+    for key in fp_data:
+        splits[key] = list(map(get_id_from_path, fp_data[key]))
+
+    return splits
+
 class RICO_TripletDataset(Dataset):
-    
-    def default_loader(path):
-        return Image.open(path).convert('RGB')
     
     def reset_iterator(self, split):
         del self._prefetch_process[split]
         self._prefetch_process[split] = BlobFetcher(split, self, if_shuffle = (split=='train'))
         self.iterators[split] = 0
    
-    def __init__(self,config):
-        self.config = config
+    def __init__(self,opt):
+        self.opt = opt
         
-        self.info = pickle.load(open('/gruvi/usr/akshay/1-FPs/7-FP_Metric/GCN_CNN_scripts/data/FP_box_info_list.pkl', 'rb'))
-        #self.Channel_img_dir = self.config.Channel25_img_dir
-        #self.img_dir = self.config.img_dir
+        self.info = pickle.load(open('layoutgmn_data/FP_box_info_list.pkl', 'rb'))
 
-        self.sg_geometry_dir = '/gruvi/usr/akshay/1-FPs/7-FP_Metric/GCN_CNN_data/graph_data/geometry-directed/'
+        self.sg_geometry_dir = 'fp_data/geometry-directed/'                
         print('\nLoading geometric graphs and features from {}\n'.format(self.sg_geometry_dir))
         
-        self.batch_size = self.config.batch_size
-        #self.transform = transform
-        self.loader = default_loader     
+        self.batch_size = self.opt.batch_size
+        self.transform = None
        
-        #self.com2index = get_com2index()
         self.geometry_relation = True
         self.geom_feat_size = 8
         
         #% get the anchor-positive-negative apn_dict dictionary 
-        self.apn_dict = pickle_load(self.config.apn_dict_path)
-        #%%
+        self.apn_dict = pickle_load(self.opt.apn_dict_path)
+
         train_uis = list(self.apn_dict.keys())
         
         # Separate out indexes for the train and test 
-        UI_data = pickle.load(open("/gruvi/usr/akshay/1-FPs/7-FP_Metric/GCN_CNN_scripts/data/FP_data.p", "rb"))
-        orig_train_uis = UI_data['train_fps']
-        gallery_uis = UI_data['val_fps']
-        
-        UI_test_data = pickle.load(open("/gruvi/usr/akshay/1-FPs/7-FP_Metric/GCN_CNN_scripts/data/FP_test_data.p", "rb"))
-        query_uis = UI_test_data['query']
-        #gallery_uis = UI_test_data['gallery_uis']
+        splits = get_splits("layoutgmn_data_changed_splits/FP_data.p")
 
         
-        # Remove '.png' extension for ease
-        orig_train_uis = [x.rsplit('/',1)[1].replace('.png', '') for x in orig_train_uis]
-        query_uis = [x.rsplit('/',1)[1].replace('.png', '') for x in query_uis]
-        gallery_uis = [x.rsplit('/',1)[1].replace('.png', '') for x in gallery_uis]
+        # # Donot use the images with large number of components. 
+        # uis_ncomponent_g100 = pickle.load(open('data/ncomponents_g100_imglist.pkl', 'rb'))
+        self.orig_train_uis = list(set(splits["train_fps"]) & set([x['id'] for x in self.info]))  #some img (e.g. img with no comp are removed in info)
+        # self.orig_train_uis = list(set(self.orig_train_uis) - set(uis_ncomponent_g100))
         
-        # Donot use the images with large number of components. 
-        #uis_ncomponent_g100 = pickle.load(open('data/ncomponents_g100_imglist.pkl', 'rb'))
-        #self.orig_train_uis = list(set(orig_train_uis) & set([x['id'] for x in self.info]))  #some img (e.g. img with no comp are removed in info)
-        self.orig_train_uis = orig_train_uis
-        #self.orig_train_uis = orig_train_uis
-        #self.orig_train_uis = list(set(self.orig_train_uis) - set(uis_ncomponent_g100))
-        
-        #train_uis = list(set(train_uis) - set(uis_ncomponent_g100))
+        train_uis = list(set(train_uis) & set([x['id'] for x in self.info]))
         
         #Instantiate the ix
-        self.split_ix = {'train': [],  'gallery': [], 'query':[]}
+        self.split_ix = {'train': [],  'gallery': [], 'val':[]}
         
         # id2index: the dataset is indexed with indicies of the list info:
         self.id2index = defaultdict(dict)
         
         for ix in range(len(self.info)):
             img = self.info[ix]['id']
+
+            assert isinstance(img, str), f"img is not a string: {img}"
+
             self.id2index[img] = ix  
-            if img in train_uis: #and img not in uis_ncomponent_g100 :
+            if img in train_uis:
                 self.split_ix['train'].append(ix)
-            elif img in query_uis: #and img not in uis_ncomponent_g100:
-                self.split_ix['query'].append(ix)
-            elif img in gallery_uis: #and img not in uis_ncomponent_g100:
-                self.split_ix['gallery'].append(ix)
-            #else:
-             #   raise Exception('image is not in the original list')
+            elif img in splits["val_fps"]:
+                self.split_ix['val'].append(ix)
         
-
-
-        self.split_ix['train'] = self.split_ix['train'][0:7700] #use only 7700 samples for training
-
-        self.iterators = {'train': 0,  'query': 0,  'gallery': 0}
-
-
+        self.iterators = {'train': 0,  'val': 0}
+        
         for split in self.split_ix.keys():
             print('assigned %d images to split %s'%(len(self.split_ix[split]), split))
         
@@ -141,44 +125,28 @@ class RICO_TripletDataset(Dataset):
         atexit.register(cleanup)
 
     def __len__(self):
-        return len(self.info)
-    
+        """Returns the number of triplet anchors"""
+        return len(self.split_ix['train'])
+
     def __getitem__(self, index):
 #        ix = index #self.split_ix[index]
         
         sg_data = self.get_graph_data(index)
-        #image_id = self.info[index]['id']
-
-        '''
-        if self.config.use_25_images:
-            # c_img = self.get_classwise_channel_image(index) #transform/resize this later
-            channel25_path = os.path.join(self.Channel_img_dir, image_id + '.npy' )
-            img = np.load(channel25_path)    
-            img = torch.tensor(img.astype(np.float32))
-        else:
-            img_name = os.path.join(self.img_dir, str(image_id) +'.png' )
-            img = self.loader(img_name)
-            img = self.transform(img)
-        '''
    
-        #return (sg_data,img,index)
-        return (sg_data,index)
-
+        return (sg_data, 
+                # img,
+                index)   
     
      
     def get_pairs(self, ix):
         id_a = self.info[ix]['id'] 
         pos_pool = self.apn_dict[id_a]['ids_pos']
-
-        random.seed(5)
         c_ind = random.choice(range(len(pos_pool)))
         id_p = pos_pool[c_ind]
-
         #iou_p = self.anc_pos_dict[id_a]['pos_ious'][c_ind]
         iou_p_norm = self.apn_dict[id_a]['ious_pos'][c_ind] 
-
-        '''
-        if self.config.hardmining:
+        
+        if self.opt.hardmining:
             #print('hard_negative mining')
             neg_pool = self.apn_dict[id_a]['ids_b2040']
             if len(neg_pool) == 0:
@@ -186,45 +154,31 @@ class RICO_TripletDataset(Dataset):
                 ids_b4050 = self.apn_dict[id_a]['ids_b4050']
                 ids_iou1 = self.apn_dict[id_a]['ids_iou1']
                 # sample from any image except pos, anchor-itself, and ids with iou between [0.4-0.6]
-                neg_pool = list(set(self.orig_train_uis) - set(pos_pool) - set([id_a]) - set(ids_iou1))
+                neg_pool = list(set(self.orig_train_uis) - set(pos_pool) - set([id_a]) - set(ids_b5060) - set(ids_b4050) -  set(ids_iou1))   
         else:
             ids_b5060 = self.apn_dict[id_a]['ids_b5060']
             ids_b4050 = self.apn_dict[id_a]['ids_b4050']
             ids_iou1 = self.apn_dict[id_a]['ids_iou1']
             # sample from any image except pos, anchor-itself, and ids with iou between [0.4-0.6]
             neg_pool = list(set(self.orig_train_uis) - set(pos_pool) - set([id_a]) - set(ids_b5060) - set(ids_b4050) -  set(ids_iou1))
-        '''
-
-        neg_pool = self.apn_dict[id_a]['ids_b2040'] + self.apn_dict[id_a]['ids_b4050']
-        random.seed(7)
-        random.shuffle(neg_pool)
-
-        random.seed(10)
-        cn_ind = random.choice(range(len(neg_pool)))
-        id_n = neg_pool[cn_ind]
-        iou_n_norm = 0  # Need to implement this, may be useful for hard negative
-
-        # Hard negative say ids with ious between 20-50:
+        
+        id_n = random.choice(neg_pool)
+        iou_n_norm = 0 # Need to implement this, may be useful for hard negative
+        
+        
+        # Hard negative say ids with ious between 20-50: 
 #        ids_b2040 = self.apn_dict[id_a]['ids_b2040']  # Note: these are not norm_iou
 #        ids_b4050 = self.apn_dict[id_a]['ids_b4050']
 #        neg_pool = ids_b2040 + ids_b4050
 #        id_n = random.choice(neg_pool)
 #        iou_n_norm = 0
-
-        
-        triplet_text_file_path = 'triplet_id.txt'
-        list1 = [id_a + ', ', id_p + ', ', id_n + '\n']
-        triplets = ''.join(list1)
-        with open(triplet_text_file_path, 'a') as f:
-           f.write(triplets)
-        
-
+       
         return id_a, id_p, id_n,  iou_p_norm, iou_n_norm
-           
+            
        
             
     def get_graph_data(self, index):
-        #self.config.use_box_feats = True
+        #self.opt.use_box_feats = True
         image_id = self.info[index]['id']
 #        sg_use = np.load(self.sg_data_dir + image_id + '.npy', encoding='latin1', allow_pickle=True)[()]
     
@@ -236,7 +190,7 @@ class RICO_TripletDataset(Dataset):
     
         box = self.info[index]['xywh']                
         
-        if self.config.use_box_feats:
+        if self.opt.use_box_feats:
             box_feats = self.get_box_feats(box)
             sg_data = {'obj': obj, 'box_feats': box_feats, 'rela': rela, 'box':box}
         else:
@@ -255,58 +209,31 @@ class RICO_TripletDataset(Dataset):
         
         obj = self.info[index]['class_id']
         obj = np.reshape(obj, (-1, 1))
-        #one_hot_encoded_obj = self.class_labels_to_one_hot(obj)
     
         box = self.info[index]['xywh']                
         
-        if self.config.use_box_feats:
+        if self.opt.use_box_feats:
             box_feats = self.get_box_feats(box)
-            #box_feats = np.concatenate((box_feats, one_hot_encoded_obj), axis=-1)
             sg_data = {'obj': obj, 'box_feats': box_feats, 'rela': rela, 'box':box}
-
         else:
             sg_data = {'obj': obj,  'rela': rela, 'box':box}
-
-        '''
-        if self.config.use_25_images:
-            if self.config.use_precomputed_25Chan_imgs:
-                channel25_path = os.path.join(self.Channel_img_dir, image_id + '.npy' )
-                img = np.load(channel25_path)    
-                img = torch.tensor(img.astype(np.float32))
-            else:
-                img = self.get_classwise_channel_image(index) #transform/resize this later
-        else:
-            img_name = os.path.join(self.img_dir, str(image_id) +'.png' )
-            img = self.loader(img_name)
-            img = self.transform(img)
-        '''
-   
-        #return (sg_data,img,index)
-        return (sg_data, index)
-
-
-
-    def get_box_feats(self, box):
-        boxes = np.array(box)
-        x1, y1, w, h = np.hsplit(boxes, 4)
-        x2, y2 = x1 + w, y1 + h
-
-        W, H = 256, 256  # We know the height and weight for all semantic UIs are 2560 and 1400
-        '''
-        x_min = min([x[0] for x in x1])
-        x_max = max([x[0] for x in x2])
-
-        y_min = min([y[0] for y in y1])
-        y_max = max([y[0] for y in y2])
-
-        W = x_max - x_min
-        H = y_max - y_min
-        '''
-
-        box_feats = np.hstack((0.5 * (x1 + x2) / W, 0.5 * (y1 + y2) / H, w / W, h / H, w * h / (W * H)))
-        # box_feats = box_feat / np.linalg.norm(box_feats, 2, 1, keepdims=True)
-        return box_feats
+               
+        return (sg_data, 
+                # img,
+                index)       
     
+    
+    def get_box_feats(self,box):
+
+        boxes = np.array(box)
+        W, H = 256, 256  # We know the height and weight for all semantic UIs are 2560 and 1400
+        
+        x1, y1, w, h = np.hsplit(boxes,4)
+        x2, y2 = x1+w, y1+h 
+        
+        box_feats = np.hstack((0.5 * (x1 + x2) / W, 0.5 * (y1 + y2) / H, w/W, h/H, w*h/(W*H)))
+        #box_feats = box_feat / np.linalg.norm(box_feats, 2, 1, keepdims=True)
+        return box_feats
     
     def get_batch(self, split, batch_size=None):
         batch_size = batch_size or self.batch_size
@@ -391,8 +318,7 @@ class RICO_TripletDataset(Dataset):
         #data['images_n'] = torch.stack(images_n)
         
         return data
-
-
+    
     def batch_sg(self, sg_batch):#, max_box_len):
         "batching object, attribute, and relationship data"
         obj_batch = [_['obj'] for _ in sg_batch]
@@ -417,9 +343,8 @@ class RICO_TripletDataset(Dataset):
             sg_data['obj_boxes'].append(box_batch[i])
         sg_data['obj_boxes'] = np.array(sg_data['obj_boxes'])
         '''
-
-
-        if self.config.use_box_feats:
+        
+        if self.opt.use_box_feats:
             box_feats_batch = [_['box_feats'] for _ in sg_batch]
             #obj_labels = -1*np.ones([max_box_len, 1], dtype = 'int')
             #sg_data['box_feats'] = []
@@ -446,8 +371,7 @@ class RICO_TripletDataset(Dataset):
         sg_data['rela_feats'] = np.array(sg_data['rela_feats'])
         '''
 
-        return sg_data
-    
+        return sg_data    
 #%%
 class BlobFetcher():
     """Experimental class for prefetching blobs in a separate process."""
@@ -455,7 +379,7 @@ class BlobFetcher():
         """
         db is a list of tuples containing: imcrop_name, caption, bbox_feat of gt box, imname
         """
-#        self.config =config
+#        self.opt =opt
         self.split = split
         self.dataloader = dataloader
         self.if_shuffle = if_shuffle
@@ -489,7 +413,6 @@ class BlobFetcher():
         if ri_next >= max_index:
             ri_next = 0
             if self.if_shuffle:
-                random.seed(3)
                 random.shuffle(self.dataloader.split_ix[self.split])
             wrapped = True
         self.dataloader.iterators[self.split] = ri_next
@@ -501,7 +424,7 @@ class BlobFetcher():
             self.reset()
 
         ix, wrapped = self._get_next_minibatch_inds()
-        tmp = self.split_loader.next()
+        tmp = next(self.split_loader)
         if wrapped:
             self.reset()
 
