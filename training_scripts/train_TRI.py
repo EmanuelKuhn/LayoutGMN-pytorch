@@ -109,11 +109,14 @@ def _main(config):
         GraphData = data_input_to_gmn(config, device, sg_data_a, sg_data_p, sg_data_n).quadruples()
         #GraphData = data_input_to_gmn(sg_data_a, sg_data_p, sg_data_n).quadruples()
 
+        optimizer.zero_grad()
 
         graph_vectors = gmn_model(**GraphData)#.cuda()
         # print(graph_vectors)
         x1, y, x2, z = reshape_and_split_tensor(graph_vectors, 4)
+        
         loss = triplet_loss(x1, y, x2, z, loss_type=config.loss_type, margin=config.margin_val)
+        
         sim_pos = torch.mean(compute_similarity(config, x1, y))
         sim_neg = torch.mean(compute_similarity(config, x2, z))
         sim_diff = sim_pos - sim_neg
@@ -121,14 +124,11 @@ def _main(config):
         graph_vec_scale = torch.mean(graph_vectors ** 2)
 
         if config.graph_vec_regularizer_weight > 0:
-            loss += config.graph_vec_regularizer_weight * 0.5 * graph_vec_scale
+            loss = loss + config.graph_vec_regularizer_weight * 0.5 * graph_vec_scale
 
-        if config.cuda:
-            total_batch_loss = loss.sum().to(device)
+        total_batch_loss = loss.sum()
 
-        total_batch_loss = loss.sum().to(device)
-
-        optimizer.zero_grad()
+        
         total_batch_loss.backward()
         clip_gradient(optimizer, config.clip_val)
         optimizer.step()
