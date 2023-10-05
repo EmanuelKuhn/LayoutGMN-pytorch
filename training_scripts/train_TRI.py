@@ -189,92 +189,6 @@ def _main(config):
             break
 
 
-
-def perform_tests(test_config, loaded_gmn_model, loader_test, save_dir, ep):
-    '''
-    :param test_config: config file with parameters usied during test time
-    :param loaded_gmn_model: loaded pre-trained network model, in your case Graph Matching Network
-    :param loader_test: object carrying test dataset
-    :param save_dir: path to the accuracy is saved
-    :param ep: int, epoch number
-    '''
-
-    device = torch.device('cuda:0' if torch.cuda.is_available() and config.cuda else "cpu")
-     
-    loaded_gmn_model.eval() # set the model in evaluation mode
-    torch.set_grad_enabled(False) # no backward propagation of loss, no parameter update
-   
-    save_file = save_dir + 'result.txt'
-
-    epoch_done = False
-    wrongly_predicted_ids = []
-    #fnames = []
-
-    correct_cnt = 0
-    c = 0
-    file_cnt = 0
-    
-    while epoch_done == False:
-        
-        t1 = time.time()
-        data =  loader_test.get_batch('train') # although it is 'train', the number of samples has already been split, and only the test samples have been loaded
-        #fnames += [x['id'] for x in data['infos']]
-
-        sg_data_a = data['sg_data_a']
-        sg_data_p = data['sg_data_p']
-        sg_data_n = data['sg_data_n']
-
-        file_cnt += 1
-        if len(sg_data_a) == 0 or len(sg_data_p) == 0 or len(sg_data_n) == 0:
-            #print('Some issue with {} triplet'.format(file_cnt))
-            continue
-
-        GraphData = data_input_to_gmn(test_config, device, sg_data_a, sg_data_p, sg_data_n).quadruples()
-
-        #gmn_model = gmn_net
-        #gmn_model_params = list(gmn_model.parameters())
-
-        graph_vectors = loaded_gmn_model(**GraphData)#.cuda()
-        t2 = time.time()
-        print(t2-t1)
-        exit()
-        # print(graph_vectors)
-        x1, y, x2, z = reshape_and_split_tensor(graph_vectors, 4)
-        sim_pos = torch.mean(compute_similarity(config, x1, y))
-        sim_neg = torch.mean(compute_similarity(config, x2, z))
-        sim_diff = sim_pos - sim_neg
-
-        if sim_diff > 0:
-            correct_cnt += 1
-        else:
-            wrongly_predicted_ids.append(c)
-
-
-        c += 1
-
-        if data['bounds']['wrapped']:
-                #print('Extracted features from {} images from {} split'.format(c, split))
-                epoch_done = True
-
-        #print('Extracted features from {} images from {} split'.format(len(fnames), 'train, but test'))
-
-
-    total_cnt = c #len(fnames)
-    print('total number of images is:', total_cnt)
-    print('correctly identified triplets are:', correct_cnt)
-
-    accuracy = 100 *(correct_cnt / total_cnt)
-    print('ep: {}\n'.format(ep))
-    print('Accuracy = {}\n\n'.format(accuracy))
-          
-    with open(save_file, 'a') as f:
-        f.write('ep: {}\n'.format(ep))
-        f.write('Accuracy = {}\n\n'.format(accuracy))
-
-    np.savetxt('wrongly_predicted_triplets.txt', wrongly_predicted_ids, delimiter='\n', fmt='%s')
-
-
-
 def load_pretrained_model(gmn_model, save_dir, stored_epoch):
     '''
     :param gmn_model: network model
@@ -307,25 +221,6 @@ if __name__ == '__main__':
     assert config.train_mode != config.eval_mode
     if config.train_mode and not config.eval_mode:
         _main(config)
+    else:
+        raise NotImplementedError(f"Expected train mode, but {config.train_mode=}, {config.eval_mode=}")
 
-    if config.eval_mode and not config.train_mode:
-        gmn_model = gmn_net
-        #gmn_model_params = list(gmn_model.parameters())
-        save_dir = 'trained_models/'
-
-        test_config = copy.deepcopy(config)
-        test_config.batch_size = 1
-        loader_test = test_RICO_TripletDataset(test_config) #load Triplet dataset for testing
-
-        #device = 'cpu'
-        for epoch in range(410, 411, 10):
-
-            string_epoch = str(epoch)
-            loaded_gmn_model = load_pretrained_model(gmn_model, save_dir, string_epoch)
-            if torch.cuda.is_available() and config.cuda:
-                loaded_gmn_model.cuda()
-           
-
-            loaded_model_params = loaded_gmn_model.parameters()
-            #evaluate_function
-            perform_tests(test_config, loaded_gmn_model, loader_test, save_dir, epoch)
