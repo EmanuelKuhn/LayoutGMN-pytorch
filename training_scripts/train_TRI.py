@@ -47,7 +47,7 @@ def _main(config):
 
     print('Initializing the model..........')
 
-    wandb.init(project="layout_gmn", name="layoutgmn", tags=["v0.9a"], config=config)
+    wandb.init(project="layout_gmn", name="layoutgmn", tags=["v0.91"], config=config)
 
     assert wandb.run is not None
 
@@ -58,15 +58,19 @@ def _main(config):
         print('No pretrained models loaded')
         gmn_model = gmn_net
 
-        stored_epoch = None
+        starting_epoch = 0
 
     else:
 
-        model_art = wandb.run.use_artifact(config.pretrained_wandb_model_ref, type="model")
+        model_art: wandb.Artifact = wandb.run.use_artifact(config.pretrained_wandb_model_ref, type="model")
 
         pretrained_path = model_art.file()
 
-        stored_epoch = model_art.metadata["epoch"]
+        starting_epoch = min(int(model_art.metadata["epoch"]), int(model_art.logged_by().summary["epoch"]))
+
+        if starting_epoch < model_art.metadata["epoch"]:
+            print(f"WARNING: Loaded model has incorrect epoch metadata: {starting_epoch=} < {model_art.metadata['epoch']=}")
+            print("Using max epoch of run as starting epoch")
 
         print(f'Loading pretrained model from:  {pretrained_path} (wandb reference: {config.pretrained_wandb_model_ref})')
         
@@ -106,9 +110,9 @@ def _main(config):
     log_template = ' '.join('{:>9s},{:>4.0f}/{:<4.0f},{:<5.0f},{:>6.4f},{:>7.5f},{:>7.5f},{:>7.5f}, {:>10.7f}'.split(','))
 
     iteration = 0
-    epoch = 0
+    epoch = starting_epoch
 
-    total_iterations = 0
+    total_samples = 0
 
     gmn_model.train()
     torch.set_grad_enabled(True)
@@ -152,13 +156,16 @@ def _main(config):
         torch.cuda.empty_cache()
         iteration += 1
 
-        total_iterations += 1
+        total_samples += len(sg_data_a)
 
-        if epoch == 0 and iteration == 1:
+        if epoch == starting_epoch and iteration == 1:
+
             print("Training Started ")
             print(header)
 
-        if iteration % 100 == 0:
+        epoch_done = data['bounds']['wrapped']
+
+        if iteration % 1 == 0 or epoch_done:
             elsp_time = (time.time() - start)
             print(log_template.format(strftime(u"%H:%M:%S", time.gmtime(elsp_time)),
                                       epoch, config.epochs, iteration, graph_vec_scale,
@@ -167,7 +174,7 @@ def _main(config):
             wandb.log({
                 "epoch": epoch,
                 "epoch_iteration": iteration,
-                "iterations": total_iterations,
+                "samples": total_samples,
                 "graph_vec_scale": graph_vec_scale.cpu(),
                 "sim_pos": sim_pos.cpu(),
                 "sim_neg": sim_neg.cpu(),
@@ -186,8 +193,6 @@ def _main(config):
             #start = time.time()
 
 
-        epoch_done = data['bounds']['wrapped']
-
         if epoch_done:
             epoch += 1
             iteration = 0
@@ -198,10 +203,7 @@ def _main(config):
             # os.makedirs(config.feature_save_path, exist_ok=True)
             try:
 
-                if stored_epoch is None:
-                    checkpoint_epochs = epoch
-                else:
-                    checkpoint_epochs = epoch + int(stored_epoch)
+                checkpoint_epochs = epoch
                 
                 tmp_model_path = model_save_path + 'gmn_tmp_model' + str(checkpoint_epochs) + '.pkl'
                 torch.save(gmn_model.state_dict(), tmp_model_path)
@@ -210,7 +212,7 @@ def _main(config):
                 print('failed to save temp models')
                 raise
             
-            model_art = wandb.Artifact(f"gmn_model_{wandb.run.id}", type="model", metadata={"epoch": checkpoint_epochs, "iterations": total_iterations})
+            model_art = wandb.Artifact(f"gmn_model_{wandb.run.id}", type="model", metadata={"epoch": checkpoint_epochs, "seen_samples": total_samples})
             model_art.add_file(tmp_model_path)
             wandb.run.log_artifact(model_art)
 
