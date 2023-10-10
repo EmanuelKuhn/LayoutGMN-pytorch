@@ -97,15 +97,18 @@ class RICO_TripletDataset(Dataset):
         # id2index: the dataset is indexed with indicies of the list info:
         self.id2index = defaultdict(dict)
         
+        train_uis_set = set(train_uis)
+        val_fps_set = set(splits["val_fps"])
+
         for ix in range(len(self.info)):
             img = self.info[ix]['id']
 
             assert isinstance(img, str), f"img is not a string: {img}"
 
             self.id2index[img] = ix  
-            if img in train_uis:
+            if img in train_uis_set:
                 self.split_ix['train'].append(ix)
-            elif img in splits["val_fps"]:
+            elif img in val_fps_set:
                 self.split_ix['val'].append(ix)
         
         self.iterators = {'train': 0,  'val': 0}
