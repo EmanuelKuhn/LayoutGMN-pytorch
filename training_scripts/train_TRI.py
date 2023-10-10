@@ -62,34 +62,13 @@ def _main(config):
 
     else:
 
-        model_art: wandb.Artifact = wandb.run.use_artifact(config.pretrained_wandb_model_ref, type="model")
-
-        pretrained_path = model_art.file()
-
-        starting_epoch = min(int(model_art.metadata["epoch"]), int(model_art.logged_by().summary["epoch"]))
-
-        if starting_epoch < model_art.metadata["epoch"]:
-            print(f"WARNING: Loaded model has incorrect epoch metadata: {starting_epoch=} < {model_art.metadata['epoch']=}")
-            print("Using max epoch of run as starting epoch")
-
-        print(f'Loading pretrained model from:  {pretrained_path} (wandb reference: {config.pretrained_wandb_model_ref})')
+        pretrained_path, starting_epoch = download_model_weights_from_wandb(config.pretrained_wandb_model_ref)
         
         # print(model_save_path + 'gmn_tmp_model' + stored_epoch + '.pkl')
-        gmn_model = gmn_net
+        
 
-        gmn_model_state_dict = torch.load(pretrained_path)
-
-        from collections import OrderedDict
-
-        def remove_module_fromStateDict(model_state_dict, model):
-            new_state_dict = OrderedDict()
-            for k, v in model_state_dict.items():
-                name = k[0:]  # remove 'module.'
-                new_state_dict[name] = v
-            model.load_state_dict(new_state_dict)
-            return model
-
-        gmn_model = remove_module_fromStateDict(gmn_model_state_dict, gmn_model)
+        gmn_model = load_pretrained_model(gmn_net, pretrained_path)
+        
         print('Finished loading saved models')
 
     '''
@@ -225,15 +204,35 @@ def _main(config):
             break
 
 
-def load_pretrained_model(gmn_model, save_dir, stored_epoch):
+
+def download_model_weights_from_wandb(pretrained_wandb_model_ref):
+
+    assert wandb.run is not None, "wandb.run is None; wandb.init() must be called before download_model_weights_from_wandb()"
+
+    model_art: wandb.Artifact = wandb.run.use_artifact(pretrained_wandb_model_ref, type="model")
+
+    pretrained_path = model_art.file()
+
+    starting_epoch = min(int(model_art.metadata["epoch"]), int(model_art.logged_by().summary["epoch"]))
+
+    if starting_epoch < model_art.metadata["epoch"]:
+        print(f"WARNING: Loaded model has incorrect epoch metadata: {starting_epoch=} < {model_art.metadata['epoch']=}")
+        print("Using max epoch of run as starting epoch")
+
+    print(f'Downloaded pretrained model to:  {pretrained_path} (wandb reference: {pretrained_wandb_model_ref})')
+
+    return pretrained_path, starting_epoch
+    
+
+def load_pretrained_model(gmn_model, pretrained_path):
     '''
     :param gmn_model: network model
     :param save_dir: path of the dir where the models have been saved
     :param stored_epoch: str, ex: '8'
     '''
     print('Loading pretrained models')
-    gmn_model_state_dict = torch.load(
-    save_dir + 'gmn_tmp_model' + stored_epoch + '.pkl')
+    
+    gmn_model_state_dict = torch.load(pretrained_path)
 
     from collections import OrderedDict
 

@@ -1,14 +1,20 @@
 import os
 import numpy as np
-import sys
 import time
 
-sys.path.insert(1,'../')
+import wandb
+
+import sys
+sys.path.append("..")
+
+sys.path.append("../training_scripts/")
+sys.path.append("./training_scripts/")
+
 from util import get_args
 from collections import defaultdict
 
 from dataloader_graph import data_input_to_gmn
-from train_TRI import load_pretrained_model
+from train_TRI import load_pretrained_model, download_model_weights_from_wandb
 from combine_all_modules_6 import gmn_net, reshape_and_split_tensor, compute_similarity
 
 import torch
@@ -189,7 +195,7 @@ class get_batch_sg_data(object):
         self.batch_size = batch_size
         self.config = config
 
-        self.sg_geometry_dir = '../UI_Metric/GCN_CNN_data/graph_data/geometry-directed/'
+        self.sg_geometry_dir = '../training_scripts/fp_data/geometry-directed/'
 
         self.info = info
 
@@ -328,7 +334,7 @@ class batched_compute_and_sort_fp(object):
         self.device = device
 
         self.info = pickle.load(
-            open('../UI_Metric/GCN_CNN_scripts/data/rico_box_info_list.pkl', 'rb'))
+            open('../training_scripts/layoutgmn_data/FP_box_info_list.pkl', 'rb'))
 
 
 
@@ -340,7 +346,7 @@ class batched_compute_and_sort_fp(object):
         return similar_fp_list
 
 
-    def _main(self, retrieval_batch_size):
+    def _main(self, retrieval_batch_size, save_folder):
         cnt = 0
         start_idx = 0
         for file in self.query_list[start_idx:]:
@@ -359,10 +365,14 @@ class batched_compute_and_sort_fp(object):
                 #print(batch_cnt)
                 data = get_batch_sg_data(query_fp, self.db_list, retrieval_batch_size,
                                          self.config, self.info).get_batch(batch_cnt)
-
+                
                 sg_data_a = data['sg_data_a']
                 sg_data_fp_1 = data['sg_data_p']
                 sg_data_fp_2 = data['sg_data_n']
+
+                assert len(sg_data_a) == len(sg_data_fp_1) == len(sg_data_fp_2)
+
+                assert len(sg_data_a) > 0, f"sg_data_a is empty for {query_fp=}; {sg_data_a=}"
 
                 Graph_Data_dict = data_input_to_gmn(config, self.device,
                                                     sg_data_a, sg_data_fp_1, sg_data_fp_2).quadruples()
@@ -390,9 +400,6 @@ class batched_compute_and_sort_fp(object):
             #query_fp_id = query_fp.rsplit('/', 1)[1][:-4]
             query_fp_id = query_fp
 
-            save_folder = 'results/'
-            os.makedirs(save_folder, exist_ok=True)
-
             np.savetxt(save_folder+str(query_fp_id)+'_retrievals.txt', similar_fp_list, delimiter='\n', fmt='%s')
             print('Finished saving retrievals for {} file'.format(cnt))
 
@@ -412,10 +419,20 @@ if __name__ == '__main__':
     batched_retr = True
 
     gmn_model = gmn_net
-    save_dir = '../trained_gmn_models/'
-    stored_epoch = '50'
 
-    loaded_gmn_model = load_pretrained_model(gmn_model, save_dir, stored_epoch)
+
+    wandb.init(project="layout_gmn_inference", name="layoutgmn_inference", tags=["0.92"], config=config)
+
+    assert wandb.run is not None
+
+    pretrained_path, _ = download_model_weights_from_wandb(config.pretrained_wandb_model_ref)
+
+
+    save_folder = f'results_{config.pretrained_wandb_model_ref.split("/")[-1]}/'
+    os.makedirs(save_folder, exist_ok=True)
+
+
+    loaded_gmn_model = load_pretrained_model(gmn_model, pretrained_path)
 
     if config.cuda and torch.cuda.is_available():
         print('Using CUDA on GPU', config.gpu)
@@ -441,7 +458,7 @@ if __name__ == '__main__':
     if batched_retr:
         print('Batched Retrievals')
         my_obj = batched_compute_and_sort_fp(query_list_txt_file, db_list_txt_file, config, loaded_gmn_model, device)
-        my_obj._main(retrieval_batch_size)
+        my_obj._main(retrieval_batch_size, save_folder)
     else:
         print('Not batched Retrievals')
         my_obj = compute_and_sort_fp(query_list_txt_file, db_list_txt_file, config, loaded_gmn_model, device)
