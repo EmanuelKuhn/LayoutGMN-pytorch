@@ -65,5 +65,7 @@ def get_args(cmd_args=None):
 
     parser.add_argument('--model_save_path', default='trained_gmn_models/')
 
+    parser.add_argument('--test_triplets_csv', type=str, default='layoutgmn_data_changed_splits/triplets_apn_iou_val.csv')
+
     args = parser.parse_args(cmd_args)
     return args

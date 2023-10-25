@@ -18,6 +18,9 @@ from cross_graph_communication_5 import *
 
 import wandb
 
+from inference.test_triplet_dataset import TestTripletDataset
+from inference.sg_dataset import SGDataset
+
 #####################################################
 ########### Some helper functions ###################
 def set_lr2(optimizer, decay_factor):
@@ -100,6 +103,14 @@ def _main(config):
     loader = RICO_TripletDataset(config)
 
     
+
+    if config.test_triplets_csv is not None:
+        sg_dataset = SGDataset(config.use_box_feats)
+
+        test_triplets_dataset = TestTripletDataset(sg_dataset, config.test_triplets_csv)
+    else:
+        test_triplets_dataset = None
+
     while True:
         data =  loader.get_batch('train')#.to(device)
 
@@ -184,6 +195,16 @@ def _main(config):
 
 
         if epoch_done:
+            if test_triplets_dataset is not None:
+                test_triplet_accuracy = compute_test_triplet_accuracy(test_triplets_dataset, gmn_model, config, device)
+
+                wandb.log({
+                    "epoch": epoch,
+                    "epoch_iteration": iteration,
+                    "samples": total_samples,
+                    "test_triplet_accuracy": test_triplet_accuracy.cpu(),
+                })
+
             epoch += 1
             iteration = 0
 
@@ -214,6 +235,25 @@ def _main(config):
         if epoch > 700:
             break
 
+
+def compute_test_triplet_accuracy(test_triplets_dataset: TestTripletDataset, gmn_model, config, device):
+    all_triplets = test_triplets_dataset.get_batch_of_all_triplets()
+
+    graph_data_dict = data_input_to_gmn(config, device,
+                                        all_triplets['sg_data_a'], all_triplets['sg_data_p'], all_triplets['sg_data_n']).quadruples()
+    
+    with torch.no_grad():
+
+        graph_vecs = gmn_model(**graph_data_dict)
+        x1, y, x2, z = reshape_and_split_tensor(graph_vecs, 4)
+
+        sim_poss = compute_similarity(config, x1, y) # these are now list of tensors \n;
+        # previously there was torch.mean at the start of the RHS
+        sim_negs = compute_similarity(config, x2, z) # list of tensors
+    
+    triplet_accuracy = (sim_poss > sim_negs).sum() / len(sim_poss)
+
+    return triplet_accuracy
 
 
 def download_model_weights_from_wandb(pretrained_wandb_model_ref):
