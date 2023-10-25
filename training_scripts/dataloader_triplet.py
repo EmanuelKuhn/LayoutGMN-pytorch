@@ -433,6 +433,8 @@ class BlobFetcher():
 
         assert tmp[-1] == ix, "ix not equal"
 
+        tmp = list(tmp)
+
         return tmp + [wrapped]
     
     
