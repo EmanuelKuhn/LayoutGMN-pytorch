@@ -1,0 +1,11 @@
+__pycache__
+training_scripts/fp_data
+training_scripts/graph_data
+training_scripts/layoutgmn_data
+training_scripts/layoutgmn_data_changed_splits
+trained_gmn_models
+
+wandb
+
+*.txt
+*.pkl
