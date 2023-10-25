@@ -115,13 +115,9 @@ def _main(config):
         graph_vectors = gmn_model(**GraphData)#.cuda()
         # print(graph_vectors)
         x1, y, x2, z = reshape_and_split_tensor(graph_vectors, 4)
-        
+
         loss = triplet_loss(x1, y, x2, z, loss_type=config.loss_type, margin=config.margin_val)
         
-        sim_pos = torch.mean(compute_similarity(config, x1, y))
-        sim_neg = torch.mean(compute_similarity(config, x2, z))
-        sim_diff = sim_pos - sim_neg
-
         graph_vec_scale = torch.mean(graph_vectors ** 2)
 
         if config.graph_vec_regularizer_weight > 0:
@@ -129,6 +125,16 @@ def _main(config):
 
         total_batch_loss = loss.sum()
 
+        # Compute train triplet accuracy and similarities:
+        with torch.no_grad():
+            sim_positives = compute_similarity(config, x1, y)
+            sim_negatives = compute_similarity(config, x2, z)
+
+            sim_pos = torch.mean(sim_positives)
+            sim_neg = torch.mean(sim_negatives)
+            sim_diff = sim_pos - sim_neg
+
+            train_triplet_accuracy = (sim_positives > sim_negatives).sum() / len(sim_positives)
         
         total_batch_loss.backward()
         clip_gradient(optimizer, config.clip_val)
@@ -159,6 +165,7 @@ def _main(config):
                 "sim_pos": sim_pos.cpu(),
                 "sim_neg": sim_neg.cpu(),
                 "sim_diff": sim_diff.cpu(),
+                "train_triplet_accuracy": train_triplet_accuracy.cpu(),
                 "total_batch_loss": total_batch_loss.item(),
                 "elapsed_time": elsp_time,
             })
