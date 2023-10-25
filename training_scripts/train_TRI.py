@@ -179,7 +179,7 @@ def _main(config):
                 "sim_pos": sim_pos.cpu(),
                 "sim_neg": sim_neg.cpu(),
                 "sim_diff": sim_diff.cpu(),
-                "train_triplet_accuracy": train_triplet_accuracy.cpu(),
+                "train/triplet_accuracy": train_triplet_accuracy.cpu(),
                 "total_batch_loss": total_batch_loss.item(),
                 "elapsed_time": elsp_time,
             })
@@ -196,13 +196,19 @@ def _main(config):
 
         if epoch_done:
             if test_triplets_dataset is not None:
-                test_triplet_accuracy = compute_test_triplet_accuracy(test_triplets_dataset, gmn_model, config, device)
+                gmn_model.eval()
+                with torch.no_grad():
+                    test_triplet_accuracy = compute_test_triplet_accuracy(test_triplets_dataset, gmn_model, config, device)
+                    
+                gmn_model.train()
+
+                print(f"{test_triplet_accuracy=}; {epoch=}; {total_samples=}")
 
                 wandb.log({
                     "epoch": epoch,
                     "epoch_iteration": iteration,
                     "samples": total_samples,
-                    "test_triplet_accuracy": test_triplet_accuracy.cpu(),
+                    "test/triplet_accuracy": test_triplet_accuracy.cpu(),
                 })
 
             epoch += 1
