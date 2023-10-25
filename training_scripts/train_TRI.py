@@ -123,7 +123,10 @@ def _main(config):
         if config.graph_vec_regularizer_weight > 0:
             loss = loss + config.graph_vec_regularizer_weight * 0.5 * graph_vec_scale
 
-        total_batch_loss = loss.sum()
+        total_batch_loss = loss.mean()
+
+        # Rescale to original loss scale (batch_size=20 was used in the original code):
+        total_batch_loss = total_batch_loss * 20
 
         # Compute train triplet accuracy and similarities:
         with torch.no_grad():
