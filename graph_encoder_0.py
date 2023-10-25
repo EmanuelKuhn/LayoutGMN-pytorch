@@ -9,7 +9,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from util import get_args
-config = get_args()
+# config = get_args()
 
 
 class MLP(nn.Module):

@@ -11,7 +11,7 @@ AGGREGATION_TYPE = {
 class GraphAggregator(nn.Module):
     """This module computes graph representations by aggregating from parts."""
 
-    def __init__(self, node_hidden_sizes, graph_transform_sizes=None,
+    def __init__(self, node_hidden_sizes, config, graph_transform_sizes=None,
                gated=True, aggregation_type='sum'):
         """Constructor.
 

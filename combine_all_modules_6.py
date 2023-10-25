@@ -7,6 +7,7 @@ encoder_model =  GraphEncoder(config, node_hidden_sizes=[config.node_geometry_fe
                               edge_hidden_sizes=[config.edge_feat_dim, int(config.node_state_dim)])
 
 aggregator_model = GraphAggregator(node_hidden_sizes=[config.graph_rep_dim],
+          config=config,
           graph_transform_sizes=[config.graph_rep_dim],
           gated=True,
           aggregation_type='sum')
