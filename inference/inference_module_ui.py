@@ -15,7 +15,7 @@ from collections import defaultdict
 
 from dataloader_graph import data_input_to_gmn
 from train_TRI import load_pretrained_model, download_model_weights_from_wandb
-from combine_all_modules_6 import gmn_net, reshape_and_split_tensor, compute_similarity
+from combine_all_modules_6 import make_graph_matching_net, reshape_and_split_tensor, compute_similarity
 
 import torch
 import torch.nn as nn
@@ -418,7 +418,7 @@ if __name__ == '__main__':
 
     batched_retr = True
 
-    gmn_model = gmn_net
+    gmn_model = make_graph_matching_net(config)
 
 
     wandb.init(project="layout_gmn_inference", name="layoutgmn_inference", tags=["0.92"], config=config)

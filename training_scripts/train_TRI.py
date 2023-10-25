@@ -12,7 +12,7 @@ from dynamicplot import DynamicPlot
 from dataloader_graph import data_input_to_gmn
 from dataloader_triplet import RICO_TripletDataset
 from test_dataloader_triplet import test_RICO_TripletDataset
-from combine_all_modules_6 import compute_similarity, reshape_and_split_tensor, gmn_net # this imports the util file
+from combine_all_modules_6 import compute_similarity, reshape_and_split_tensor, make_graph_matching_net # this imports the util file
 
 from cross_graph_communication_5 import *
 
@@ -53,6 +53,7 @@ def _main(config):
 
     model_save_path = f"{config.model_save_path}/{wandb.run.id}/"
 
+    gmn_net = make_graph_matching_net(config)
 
     if config.pretrained_wandb_model_ref is None:
         print('No pretrained models loaded')

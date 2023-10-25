@@ -1,40 +1,42 @@
 from ged_graph_data import *
 from util import get_args
 
-config = get_args()
 
-encoder_model =  GraphEncoder(config, node_hidden_sizes=[config.node_geometry_feat_dim, config.node_state_dim],
-                              edge_hidden_sizes=[config.edge_feat_dim, int(config.node_state_dim)])
+def make_graph_matching_net(config):
+  encoder_model =  GraphEncoder(config, node_hidden_sizes=[config.node_geometry_feat_dim, config.node_state_dim],
+                                edge_hidden_sizes=[config.edge_feat_dim, int(config.node_state_dim)])
 
-aggregator_model = GraphAggregator(node_hidden_sizes=[config.graph_rep_dim],
-          config=config,
-          graph_transform_sizes=[config.graph_rep_dim],
-          gated=True,
-          aggregation_type='sum')
-
-
-message_net = MLP([2*config.node_state_dim+int(config.node_state_dim), config.edge_feat_dim, int(config.node_state_dim), int(config.node_state_dim)])
-reverse_message_net = MLP([2*config.node_state_dim+int(config.node_state_dim), config.edge_feat_dim, int(config.node_state_dim), int(config.node_state_dim)])
-node_update_mlp = MLP([2*config.node_state_dim+int(config.node_state_dim), config.node_geometry_feat_dim, int(config.node_state_dim), config.node_state_dim])
+  aggregator_model = GraphAggregator(node_hidden_sizes=[config.graph_rep_dim],
+            config=config,
+            graph_transform_sizes=[config.graph_rep_dim],
+            gated=True,
+            aggregation_type='sum')
 
 
-gmn_net = GraphMatchingNet(encoder = encoder_model,
-               aggregator = aggregator_model,
-               message_net = message_net,
-               reverse_message_net = reverse_message_net,
-               node_update_MLP = node_update_mlp,
-               node_state_dim = config.node_state_dim,
-               edge_hidden_sizes = [config.edge_feat_dim, config.node_state_dim * 2,
-                                    config.node_state_dim * 2],
-               node_hidden_sizes = [config.node_geometry_feat_dim, config.node_state_dim * 2],
-               n_prop_layers = 5,
-               share_prop_params=False,
-               #edge_net_init_scale=0.1,
-               node_update_type='residual',
-               use_reverse_direction=False,
-               reverse_dir_param_different=False,
-               layer_norm=False,
-               similarity='dotproduct')
+  message_net = MLP([2*config.node_state_dim+int(config.node_state_dim), config.edge_feat_dim, int(config.node_state_dim), int(config.node_state_dim)])
+  reverse_message_net = MLP([2*config.node_state_dim+int(config.node_state_dim), config.edge_feat_dim, int(config.node_state_dim), int(config.node_state_dim)])
+  node_update_mlp = MLP([2*config.node_state_dim+int(config.node_state_dim), config.node_geometry_feat_dim, int(config.node_state_dim), config.node_state_dim])
+
+
+  gmn_net = GraphMatchingNet(encoder = encoder_model,
+                aggregator = aggregator_model,
+                message_net = message_net,
+                reverse_message_net = reverse_message_net,
+                node_update_MLP = node_update_mlp,
+                node_state_dim = config.node_state_dim,
+                edge_hidden_sizes = [config.edge_feat_dim, config.node_state_dim * 2,
+                                      config.node_state_dim * 2],
+                node_hidden_sizes = [config.node_geometry_feat_dim, config.node_state_dim * 2],
+                n_prop_layers = 5,
+                share_prop_params=False,
+                #edge_net_init_scale=0.1,
+                node_update_type='residual',
+                use_reverse_direction=False,
+                reverse_dir_param_different=False,
+                layer_norm=False,
+                similarity='dotproduct')
+  
+  return gmn_net
 
 
 def reshape_and_split_tensor(tensor, n_splits):
@@ -97,7 +99,11 @@ def compute_similarity(config, x, y):
 
 
 if __name__ == '__main__':
-    gmn_model = gmn_net
+    
+    config = get_args()
+
+    gmn_model = make_graph_matching_net(config)
+    
     gmn_model_params = list(gmn_model.parameters())
     GraphData = graph_data((4,8), (0.2, 1), 1, 2).triplets(1)
 
