@@ -1,6 +1,6 @@
 from argparse import ArgumentParser
 
-def get_args():
+def get_args(cmd_args=None):
     """ The default configs"""
     parser = ArgumentParser(description='Graph Matching Network on Layout Data')
 
@@ -65,5 +65,5 @@ def get_args():
 
     parser.add_argument('--model_save_path', default='trained_gmn_models/')
 
-    args = parser.parse_args()
+    args = parser.parse_args(cmd_args)
     return args
