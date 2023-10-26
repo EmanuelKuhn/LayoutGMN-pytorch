@@ -50,7 +50,13 @@ def _main(config):
 
     print('Initializing the model..........')
 
-    wandb.init(project="layout_gmn", name="layoutgmn", tags=["v0.91"], config=config)
+    wandb.init(project="layout_gmn", name="layoutgmn", tags=["v0.92"], config=config)
+
+    if config.hardmining:
+        wandb.run.tags = wandb.run.tags + ("hardmining",)
+    
+    if config.pretrained_wandb_model_ref is not None:
+        wandb.run.tags = wandb.run.tags + ("pretrained",)
 
     assert wandb.run is not None
 
