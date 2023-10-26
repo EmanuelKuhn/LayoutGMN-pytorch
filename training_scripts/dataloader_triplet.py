@@ -151,13 +151,18 @@ class RICO_TripletDataset(Dataset):
         
         if self.opt.hardmining:
             #print('hard_negative mining')
-            neg_pool = self.apn_dict[id_a]['ids_b2040']
+            neg_pool = set(self.apn_dict[id_a]['ids_b2040']) | set(self.apn_dict[id_a]['ids_b4050']) | set(self.apn_dict[id_a]['ids_b5060'])
+
+            assert len(neg_pool & set(set(self.apn_dict[id_a]['ids_pos']))) == 0
+
+            neg_pool = list(neg_pool)
+            
             if len(neg_pool) == 0:
-                ids_b5060 = self.apn_dict[id_a]['ids_b5060']
-                ids_b4050 = self.apn_dict[id_a]['ids_b4050']
+                # ids_b5060 = self.apn_dict[id_a]['ids_b5060']
+                # ids_b4050 = self.apn_dict[id_a]['ids_b4050']
                 ids_iou1 = self.apn_dict[id_a]['ids_iou1']
                 # sample from any image except pos, anchor-itself, and ids with iou between [0.4-0.6]
-                neg_pool = list(set(self.orig_train_uis) - set(pos_pool) - set([id_a]) - set(ids_b5060) - set(ids_b4050) -  set(ids_iou1))   
+                neg_pool = list(set(self.orig_train_uis) - set(pos_pool) - set([id_a]) -  set(ids_iou1))   
         else:
             ids_b5060 = self.apn_dict[id_a]['ids_b5060']
             ids_b4050 = self.apn_dict[id_a]['ids_b4050']
