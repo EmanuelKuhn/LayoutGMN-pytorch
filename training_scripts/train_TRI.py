@@ -295,7 +295,9 @@ def load_pretrained_model(gmn_model, pretrained_path):
     '''
     print('Loading pretrained models')
     
-    gmn_model_state_dict = torch.load(pretrained_path)
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+
+    gmn_model_state_dict = torch.load(pretrained_path, map_location=torch.device(device))
 
     from collections import OrderedDict
 
